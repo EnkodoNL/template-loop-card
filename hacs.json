@@ -1,6 +1,5 @@
 {
   "name": "Template Loop Card",
-  "hacs": "1.6.0",
   "render_readme": true,
   "filename": "template-loop-card.js"
 }
