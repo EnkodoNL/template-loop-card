@@ -12,33 +12,71 @@ export class TemplateProcessor {
 
   async processTemplate(template: string): Promise<ProcessedTemplate> {
     try {
-      // Use the WebSocket API to render the template
-      const result = await this.hass.callWS({
-        type: 'render_template',
-        template: template,
+      // Use a promise-based approach to get the template result
+      const templateResult = await new Promise<string>((resolve, reject) => {
+        let unsubscribe: (() => void) | undefined;
+        let resolved = false;
+
+        const timeout = setTimeout(() => {
+          if (unsubscribe) unsubscribe();
+          if (!resolved) {
+            resolved = true;
+            reject(new Error('Template rendering timeout'));
+          }
+        }, 5000); // 5 second timeout
+
+        // Create event handler for template results
+        const handleTemplateResult = (event: any) => {
+          if (event && event.result !== undefined && !resolved) {
+            resolved = true;
+            clearTimeout(timeout);
+            if (unsubscribe) unsubscribe();
+            resolve(event.result);
+          }
+        };
+
+        // Subscribe to template updates
+        this.hass
+          .callWS({
+            type: 'render_template',
+            template: template,
+          })
+          .then((unsub: any) => {
+            unsubscribe = unsub;
+
+            // If the unsub is actually a function that handles events, call it with our handler
+            if (typeof unsub === 'function') {
+              try {
+                unsub(handleTemplateResult);
+              } catch (e) {
+                // If that doesn't work, the unsub might be the unsubscribe function
+                console.log('Template Loop Card: Subscription established');
+              }
+            }
+          })
+          .catch((error) => {
+            clearTimeout(timeout);
+            if (!resolved) {
+              resolved = true;
+              reject(error);
+            }
+          });
       });
 
       let items: TemplateItem[] = [];
 
-      if (result) {
+      if (templateResult) {
         try {
-          // The result should already be parsed
-          if (Array.isArray(result)) {
-            items = result;
-          } else if (typeof result === 'string') {
-            // Try to parse the string result as JSON first
-            try {
-              const parsed = JSON.parse(result);
-              items = Array.isArray(parsed) ? parsed : [parsed];
-            } catch (jsonError) {
-              // If JSON parsing fails, try to parse as YAML-like structure
-              items = this.parseYamlLikeTemplate(result);
-            }
-          } else {
-            items = [result];
+          // Try to parse the string result as JSON first
+          try {
+            const parsed = JSON.parse(templateResult);
+            items = Array.isArray(parsed) ? parsed : [parsed];
+          } catch (jsonError) {
+            // If JSON parsing fails, try to parse as YAML-like structure
+            items = this.parseYamlLikeTemplate(templateResult);
           }
         } catch (parseError) {
-          console.warn('Template Loop Card: Could not parse template result:', result);
+          console.warn('Template Loop Card: Could not parse template result:', templateResult);
         }
       }
 
@@ -103,52 +141,5 @@ export class TemplateProcessor {
     }
 
     return items;
-  }
-
-  // Alternative method using Home Assistant's built-in template rendering
-  async processTemplateAlternative(template: string): Promise<ProcessedTemplate> {
-    try {
-      // Use the connection to call the template WS API directly
-      const result = await this.hass.callWS({
-        type: 'render_template',
-        template: template,
-      });
-
-      let items: TemplateItem[] = [];
-
-      if (result) {
-        try {
-          // The result should already be parsed
-          if (Array.isArray(result)) {
-            items = result;
-          } else if (typeof result === 'string') {
-            // Try to parse the string result
-            const parsed = JSON.parse(result);
-            items = Array.isArray(parsed) ? parsed : [parsed];
-          } else {
-            items = [result];
-          }
-        } catch (parseError) {
-          console.warn('Template Loop Card: Could not parse template result:', result);
-        }
-      }
-
-      // Validate items
-      items = items.filter((item) => {
-        if (typeof item === 'object' && item !== null && 'type' in item) {
-          return true;
-        }
-        console.warn('Template Loop Card: Skipping invalid item (missing type):', item);
-        return false;
-      });
-
-      return { items };
-    } catch (error) {
-      const errorMessage = this.errorHandler.handleTemplateError(error as Error, template);
-      return {
-        items: [],
-        error: errorMessage,
-      };
-    }
   }
 }
