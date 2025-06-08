@@ -25,16 +25,6 @@ export class TemplateProcessor {
           }
         }, 5000); // 5 second timeout
 
-        // Create event handler for template results
-        const handleTemplateResult = (event: any) => {
-          if (event && event.result !== undefined && !resolved) {
-            resolved = true;
-            clearTimeout(timeout);
-            if (unsubscribe) unsubscribe();
-            resolve(event.result);
-          }
-        };
-
         // Subscribe to template updates
         this.hass
           .callWS({
@@ -44,13 +34,29 @@ export class TemplateProcessor {
           .then((unsub: any) => {
             unsubscribe = unsub;
 
-            // If the unsub is actually a function that handles events, call it with our handler
+            // The subscription should trigger events that we can listen for
+            // Since we can't directly pass a callback, we need to listen for events
+            // on the connection or use the subscription function differently
+
+            // Try calling the unsubscribe function as an event handler
             if (typeof unsub === 'function') {
               try {
-                unsub(handleTemplateResult);
+                // Some Home Assistant APIs use the returned function as an event handler
+                const result = unsub((event: any) => {
+                  if (event && event.result !== undefined && !resolved) {
+                    resolved = true;
+                    clearTimeout(timeout);
+                    resolve(event.result);
+                  }
+                });
+
+                // If the function returns something, it might be the actual unsubscribe
+                if (result && typeof result === 'function') {
+                  unsubscribe = result;
+                }
               } catch (e) {
-                // If that doesn't work, the unsub might be the unsubscribe function
-                console.log('Template Loop Card: Subscription established');
+                // If that doesn't work, the function is probably just the unsubscribe
+                console.log('Template Loop Card: Standard subscription established');
               }
             }
           })
