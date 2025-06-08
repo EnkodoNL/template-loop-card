@@ -12,32 +12,38 @@ export class TemplateProcessor {
 
   async processTemplate(template: string): Promise<ProcessedTemplate> {
     try {
-      // Call Home Assistant's template service to process the Jinja2 template
-      const result = await this.hass.callService('template', 'render', {
-        template: template
+      // Use the WebSocket API to render the template
+      const result = await this.hass.callWS({
+        type: 'render_template',
+        template: template,
       });
 
-      // Parse the result as YAML/JSON
       let items: TemplateItem[] = [];
-      
-      if (result && result.response) {
+
+      if (result) {
         try {
-          // Try to parse as JSON first
-          const parsed = JSON.parse(result.response);
-          if (Array.isArray(parsed)) {
-            items = parsed;
+          // The result should already be parsed
+          if (Array.isArray(result)) {
+            items = result;
+          } else if (typeof result === 'string') {
+            // Try to parse the string result as JSON first
+            try {
+              const parsed = JSON.parse(result);
+              items = Array.isArray(parsed) ? parsed : [parsed];
+            } catch (jsonError) {
+              // If JSON parsing fails, try to parse as YAML-like structure
+              items = this.parseYamlLikeTemplate(result);
+            }
           } else {
-            // If it's not an array, wrap it
-            items = [parsed];
+            items = [result];
           }
-        } catch (jsonError) {
-          // If JSON parsing fails, try to parse as YAML-like structure
-          items = this.parseYamlLikeTemplate(result.response);
+        } catch (parseError) {
+          console.warn('Template Loop Card: Could not parse template result:', result);
         }
       }
 
       // Validate that each item has a type property
-      items = items.filter(item => {
+      items = items.filter((item) => {
         if (typeof item === 'object' && item !== null && 'type' in item) {
           return true;
         }
@@ -48,37 +54,37 @@ export class TemplateProcessor {
       return { items };
     } catch (error) {
       const errorMessage = this.errorHandler.handleTemplateError(error as Error, template);
-      return { 
-        items: [], 
-        error: errorMessage 
+      return {
+        items: [],
+        error: errorMessage,
       };
     }
   }
 
   private parseYamlLikeTemplate(templateResult: string): TemplateItem[] {
     const items: TemplateItem[] = [];
-    
+
     try {
       // Split by lines and process each potential YAML item
-      const lines = templateResult.split('\n').filter(line => line.trim());
+      const lines = templateResult.split('\n').filter((line) => line.trim());
       let currentItem: any = null;
-      
+
       for (const line of lines) {
         const trimmedLine = line.trim();
-        
+
         // Check if this is a new item (starts with -)
         if (trimmedLine.startsWith('- ')) {
           // Save previous item if exists
           if (currentItem) {
             items.push(currentItem);
           }
-          
+
           // Start new item
           const itemContent = trimmedLine.substring(2).trim();
           if (itemContent.includes(':')) {
             const [key, ...valueParts] = itemContent.split(':');
             currentItem = {
-              [key.trim()]: valueParts.join(':').trim()
+              [key.trim()]: valueParts.join(':').trim(),
             };
           }
         } else if (currentItem && trimmedLine.includes(':')) {
@@ -87,16 +93,15 @@ export class TemplateProcessor {
           currentItem[key.trim()] = valueParts.join(':').trim();
         }
       }
-      
+
       // Don't forget the last item
       if (currentItem) {
         items.push(currentItem);
       }
-      
     } catch (error) {
       console.error('Template Loop Card: Failed to parse YAML-like template result:', error);
     }
-    
+
     return items;
   }
 
@@ -106,11 +111,11 @@ export class TemplateProcessor {
       // Use the connection to call the template WS API directly
       const result = await this.hass.callWS({
         type: 'render_template',
-        template: template
+        template: template,
       });
 
       let items: TemplateItem[] = [];
-      
+
       if (result) {
         try {
           // The result should already be parsed
@@ -129,7 +134,7 @@ export class TemplateProcessor {
       }
 
       // Validate items
-      items = items.filter(item => {
+      items = items.filter((item) => {
         if (typeof item === 'object' && item !== null && 'type' in item) {
           return true;
         }
@@ -140,9 +145,9 @@ export class TemplateProcessor {
       return { items };
     } catch (error) {
       const errorMessage = this.errorHandler.handleTemplateError(error as Error, template);
-      return { 
-        items: [], 
-        error: errorMessage 
+      return {
+        items: [],
+        error: errorMessage,
       };
     }
   }
