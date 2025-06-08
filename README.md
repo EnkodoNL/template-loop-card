@@ -7,12 +7,17 @@
 A powerful Home Assistant custom card that dynamically loops over template-generated lists to create multiple cards without manual configuration.
 
 Perfect for displaying dynamic content like:
+
 - 📝 Todoist tasks and reminders
 - 📅 Calendar events
 - 🌡️ Sensor arrays (temperatures, batteries, etc.)
 - 👥 Person locations
 - 🛒 Shopping lists
 - 📊 Any list-based data from Home Assistant
+
+## Images
+
+![Template Loop Card Example](https://raw.githubusercontent.com/EnkodoNL/template-loop-card/main/images/example.png)
 
 ## ✨ Features
 
@@ -62,15 +67,15 @@ template: >
 
 ## ⚙️ Configuration
 
-| Option | Type | Default | Description |  
-|--------|------|---------|-------------|
-| `template` | string | **Required** | Jinja2 template that returns a list of card configurations |
-| `layout` | string | `vertical` | Layout type: `vertical`, `horizontal`, or `grid` |
-| `columns` | number | `2` | Number of columns for grid layout |
-| `spacing` | string | `8px` | Gap between cards |
-| `no_items_message` | string | `No items found` | Message shown when template returns no items |
-| `show_errors` | boolean | `false` | Show detailed error messages in the UI |
-| `card_mod` | object | - | Card-mod styling configuration |
+| Option             | Type    | Default          | Description                                                |
+| ------------------ | ------- | ---------------- | ---------------------------------------------------------- |
+| `template`         | string  | **Required**     | Jinja2 template that returns a list of card configurations |
+| `layout`           | string  | `vertical`       | Layout type: `vertical`, `horizontal`, or `grid`           |
+| `columns`          | number  | `2`              | Number of columns for grid layout                          |
+| `spacing`          | string  | `8px`            | Gap between cards                                          |
+| `no_items_message` | string  | `No items found` | Message shown when template returns no items               |
+| `show_errors`      | boolean | `false`          | Show detailed error messages in the UI                     |
+| `card_mod`         | object  | -                | Card-mod styling configuration                             |
 
 ## 📚 Examples
 
@@ -88,7 +93,7 @@ template: >
   {% endfor %}
 layout: vertical
 spacing: 12px
-no_items_message: "All tasks completed! 🎉"
+no_items_message: 'All tasks completed! 🎉'
 ```
 
 ### 📅 Calendar Events
@@ -156,7 +161,7 @@ template: >
         ⬜ {{ item.name }}
         {% endif %}
   {% endfor %}
-no_items_message: "Shopping list is empty! 🛒"
+no_items_message: 'Shopping list is empty! 🛒'
 ```
 
 ### 🔋 Battery Status Monitor
@@ -173,7 +178,7 @@ template: >
   {% endfor %}
 layout: grid
 columns: 2
-no_items_message: "All batteries are good! 🔋"
+no_items_message: 'All batteries are good! 🔋'
 ```
 
 ## 🎨 Advanced Styling
@@ -255,6 +260,7 @@ template-loop-card/
 **Problem**: Template not working or showing errors
 
 **Solutions**:
+
 - Enable `show_errors: true` to see detailed error messages
 - Test your template in Home Assistant's Developer Tools > Template
 - Check the browser console for additional debugging information
@@ -265,6 +271,7 @@ template-loop-card/
 **Problem**: Card doesn't show up in the dashboard
 
 **Solutions**:
+
 - Verify the resource is added to your Lovelace configuration
 - Clear browser cache (Ctrl+F5 or Cmd+Shift+R)
 - Check that the card type is exactly `custom:template-loop-card`
@@ -275,6 +282,7 @@ template-loop-card/
 **Problem**: Dashboard becomes slow with large lists
 
 **Solutions**:
+
 - Limit items in your template using slicing: `states.sensor[:10]`
 - Use simpler card types (markdown instead of entities)
 - Avoid complex calculations in templates
